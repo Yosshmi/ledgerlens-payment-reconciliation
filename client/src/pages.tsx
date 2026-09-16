@@ -724,7 +724,7 @@ export function Investigation() {
                         <small>
                           {e.source} · <span className="mono">{e.eventId}</span>
                         </small>
-                        {Object.keys(e.metadata).length > 0 && (
+                        {Object.keys(e.metadata ?? {}).length > 0 && (
                           <code>{JSON.stringify(e.metadata)}</code>
                         )}
                       </div>

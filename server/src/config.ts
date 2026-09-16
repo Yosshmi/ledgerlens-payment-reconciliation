@@ -13,6 +13,7 @@ export const config = z
     WEBHOOK_SECRET: z.string().min(32),
     INTERNAL_SERVICE_SECRET: z.string().min(32),
     DJANGO_URL: z.url(),
+    API_INTERNAL_URL: z.url().default("http://localhost:4000"),
     ENABLE_DEMO: z.enum(["true", "false"]).default("false"),
   })
   .parse(process.env);

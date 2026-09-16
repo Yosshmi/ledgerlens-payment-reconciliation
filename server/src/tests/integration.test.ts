@@ -14,7 +14,10 @@ import {
   Audit,
   Event,
   Job,
+  SettlementRow,
+  Settlement,
 } from "../models.js";
+import { processSettlement } from "../workers/settlement.js";
 import { createSession } from "../auth.js";
 import { signWebhook } from "../finance.js";
 const app = createApp(),
@@ -44,6 +47,10 @@ beforeAll(async () => {
     process.env.MONGODB_URI = replica.getUri("ledgerlens_test");
   }
   await connect();
+  if (!mongoose.connection.name.endsWith("_test"))
+    throw new Error(
+      "Integration tests require a dedicated database ending in _test",
+    );
   await Organization.create([
     { organization: "ORG_A", name: "A" },
     { organization: "ORG_B", name: "B" },
@@ -333,6 +340,26 @@ describe("API integration: security and financial invariants", () => {
       );
     expect(upload.status).toBe(202);
     expect(upload.body.state).toBe("QUEUED");
+    const storedJob = await Job.findOne({ jobId: upload.body.jobId });
+    for (let attempt = 0; attempt < 2; attempt++)
+      await processSettlement(
+        storedJob!.jobId,
+        "ORG_A",
+        storedJob!.payload.fileId,
+        storedJob!.payload.settlementId,
+      );
+    expect(
+      await SettlementRow.countDocuments({
+        settlementId: storedJob!.payload.settlementId,
+      }),
+    ).toBe(1);
+    expect(
+      (
+        await Settlement.findOne({
+          settlementId: storedJob!.payload.settlementId,
+        })
+      )?.status,
+    ).toBe("COMPLETED");
     expect(
       (
         await request(app)

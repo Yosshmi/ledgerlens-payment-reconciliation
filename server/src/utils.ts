@@ -27,60 +27,65 @@ export class AppError extends Error {
 export const notFound: RequestHandler = (_req, _res, next) =>
   next(new AppError(404, "NOT_FOUND", "Resource was not found"));
 export const errors: ErrorRequestHandler = (err, _req, res, _next) => {
-  if (err instanceof ZodError) {
+  if (err.type === "entity.parse.failed" || err.name === "MulterError") {
     res
-      .status(422)
+      .status(err.code === "LIMIT_FILE_SIZE" ? 413 : 400)
       .json({
         success: false,
         error: {
-          code: "VALIDATION_ERROR",
-          message: "Invalid request",
-          details: err.issues.map((i) => ({
-            path: i.path.join("."),
-            message: i.message,
-          })),
+          code: "INVALID_PAYLOAD",
+          message:
+            err.code === "LIMIT_FILE_SIZE"
+              ? "Upload limit is 10 MB"
+              : "Malformed JSON or invalid upload",
         },
       });
+    return;
+  }
+  if (err instanceof ZodError) {
+    res.status(422).json({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Invalid request",
+        details: err.issues.map((i) => ({
+          path: i.path.join("."),
+          message: i.message,
+        })),
+      },
+    });
     return;
   }
   if (err instanceof AppError) {
-    res
-      .status(err.status)
-      .json({
-        success: false,
-        error: { code: err.code, message: err.message },
-      });
+    res.status(err.status).json({
+      success: false,
+      error: { code: err.code, message: err.message },
+    });
     return;
   }
   if (err.code === 11000) {
-    res
-      .status(409)
-      .json({
-        success: false,
-        error: {
-          code: "CONFLICT",
-          message: "A matching record already exists",
-        },
-      });
+    res.status(409).json({
+      success: false,
+      error: {
+        code: "CONFLICT",
+        message: "A matching record already exists",
+      },
+    });
     return;
   }
   if (err.code === "LIMIT_FILE_SIZE") {
-    res
-      .status(413)
-      .json({
-        success: false,
-        error: { code: "FILE_TOO_LARGE", message: "Upload limit is 10 MB" },
-      });
+    res.status(413).json({
+      success: false,
+      error: { code: "FILE_TOO_LARGE", message: "Upload limit is 10 MB" },
+    });
     return;
   }
   logger.error({ name: err.name, message: err.message }, "Request failed");
-  res
-    .status(500)
-    .json({
-      success: false,
-      error: {
-        code: "INTERNAL_ERROR",
-        message: "The request could not be completed",
-      },
-    });
+  res.status(500).json({
+    success: false,
+    error: {
+      code: "INTERNAL_ERROR",
+      message: "The request could not be completed",
+    },
+  });
 };

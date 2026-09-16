@@ -3,10 +3,30 @@ import { Queue, Worker } from "bullmq";
 import { config } from "../config.js";
 import { connect, Job, Organization } from "../models.js";
 import { logger } from "../utils.js";
-import { applyWebhook } from "../finance.js";
+import { signWebhook, webhookInput } from "../finance.js";
+import type { z } from "zod";
 import { processSettlement } from "./settlement.js";
 import { reconcile } from "./reconcile.js";
 await connect();
+async function deliverWebhook(payload: z.infer<typeof webhookInput>) {
+  const raw = Buffer.from(JSON.stringify(payload));
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const response = await fetch(
+    `${config.API_INTERNAL_URL}/api/webhooks/gateway`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Webhook-Timestamp": timestamp,
+        "X-Webhook-Signature": signWebhook(raw, timestamp),
+      },
+      body: raw,
+      signal: AbortSignal.timeout(15000),
+    },
+  );
+  if (!response.ok)
+    throw new Error(`Gateway delivery failed (${response.status})`);
+}
 const redis = new URL(config.REDIS_URL);
 const connection = {
   host: redis.hostname,
@@ -35,7 +55,7 @@ const worker = new Worker(
     );
     try {
       if (job.kind === "PAYMENT" && job.payload.outcome !== "TIMEOUT")
-        await applyWebhook({
+        await deliverWebhook({
           eventId: `EVT_${job.jobId}`,
           organization: job.organization,
           type:
@@ -45,7 +65,7 @@ const worker = new Worker(
           reference: job.payload.transactionId,
         });
       if (job.kind === "REFUND")
-        await applyWebhook({
+        await deliverWebhook({
           eventId: `EVT_${job.jobId}`,
           organization: job.organization,
           type:

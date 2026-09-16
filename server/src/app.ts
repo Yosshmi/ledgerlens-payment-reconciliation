@@ -50,12 +50,24 @@ const identifier = z
 const credentials = z
   .object({
     email: z.email().toLowerCase().max(254),
-    password: z.string().min(12).max(128),
+    password: z
+      .string()
+      .min(12)
+      .max(72)
+      .refine(
+        (value) => Buffer.byteLength(value, "utf8") <= 72,
+        "Password must be at most 72 UTF-8 bytes",
+      ),
   })
   .strict();
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
+  app.disable("etag");
+  app.use("/api", (_req, res, next) => {
+    res.setHeader("Cache-Control", "no-store");
+    next();
+  });
   if (config.NODE_ENV === "production") app.set("trust proxy", 1);
   app.use(
     helmet(),
@@ -716,14 +728,12 @@ export function createApp() {
       );
       return result!;
     });
-    res
-      .status(201)
-      .json({
-        userId: user.userId,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      });
+    res.status(201).json({
+      userId: user.userId,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    });
   });
   app.patch("/api/users/:userId", permit("ADMIN"), async (req, res) => {
     const userId = identifier.parse(req.params.userId),

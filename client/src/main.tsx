@@ -332,10 +332,36 @@ function Shell() {
     </div>
   );
 }
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? (
+      <div className="state error" role="alert">
+        <div>
+          <h2>This view could not be displayed</h2>
+          <p>Reload to reconnect to your workspace.</p>
+          <button className="primary" onClick={() => window.location.reload()}>
+            Reload workspace
+          </button>
+        </div>
+      </div>
+    ) : (
+      this.props.children
+    );
+  }
+}
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </BrowserRouter>
   </React.StrictMode>,
 );

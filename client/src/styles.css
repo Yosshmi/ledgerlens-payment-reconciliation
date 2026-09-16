@@ -647,6 +647,7 @@ main {
   color: #5f9a8d;
 }
 .table-scroll {
+  position: relative;
   overflow-x: auto;
 }
 table {
@@ -768,6 +769,9 @@ td small {
   color: #658090;
   padding-bottom: 12px;
   font-size: 0.83rem;
+}
+.advanced:not([open]) > div {
+  display: none;
 }
 .advanced > div {
   position: absolute;
@@ -1512,8 +1516,9 @@ footer > span {
     min-width: 0;
   }
   .advanced > div {
-    right: auto;
-    left: 0;
+    right: 0;
+    left: auto;
+    width: min(300px, calc(100vw - 48px));
   }
   .investigation-summary {
     flex-direction: column;
