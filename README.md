@@ -2,15 +2,31 @@
 
 ### Payment Reconciliation & Transaction Investigation Platform
 
-Investigate transactions. Detect inconsistencies. Reconcile payments.
+[![Validate LedgerLens](https://github.com/Yosshmi/ledgerlens-payment-reconciliation/actions/workflows/ci.yml/badge.svg)](https://github.com/Yosshmi/ledgerlens-payment-reconciliation/actions/workflows/ci.yml)
 
-An internal payment-operations application built with React, Express, MongoDB,
-Django REST Framework, PostgreSQL and Redis/BullMQ. All payments are simulated.
+LedgerLens helps payment operations teams trace transactions, detect settlement and
+refund discrepancies, and record investigation decisions in one workspace. This
+full-stack portfolio project models those workflows using synthetic payment data.
 
-**Status:** implemented and tested, including the complete container stack in CI.
-**Live demo:** pending authenticated hosting access and production verification.
-**GitHub:** [ledgerlens-payment-reconciliation](https://github.com/Yosshmi/ledgerlens-payment-reconciliation)
-**CI:** [validation runs](https://github.com/Yosshmi/ledgerlens-payment-reconciliation/actions)
+**React · TypeScript · Node.js / Express · Django REST Framework · PostgreSQL · MongoDB · Redis / BullMQ · Docker**
+
+**Project status:** runs locally with Docker Compose; the complete container stack
+is tested in GitHub Actions. There is currently no hosted demo.
+
+[Screenshots](#screenshots) · [Run locally](#local-development-and-demo-access) ·
+[Architecture](#architecture-and-stack) · [Tests](#testing) ·
+[Documentation](#api-and-documentation)
+
+## At a glance
+
+- **480 seeded payments across four merchants**, including intentional discrepancies
+  for investigation.
+- **Eight reconciliation rules** comparing payment, settlement, refund and simulated
+  ledger evidence.
+- **Retry-safe financial workflows:** atomic refund reservations, idempotency keys,
+  signed webhooks and durable background-job dispatch.
+- **31 automated tests:** 19 Node tests, 9 Django tests and 3 browser/full-stack tests.
+- **Five access roles**, tenant-scoped data, audit history and a read-only demo workspace.
 
 ## Screenshots
 
@@ -32,6 +48,18 @@ Captured from the running application with backend-derived synthetic data.
 A successful gateway payment can still have a missing merchant credit, absent
 settlement or inconsistent refund evidence. LedgerLens connects the complete
 lifecycle, compares independent records and preserves investigation history.
+
+## Example investigation
+
+1. Review the dashboard for payment outcomes and open reconciliation incidents.
+2. Filter the transaction explorer by merchant, status, date or amount.
+3. Open a transaction to compare its event timeline, financial trace, refunds and
+   settlement evidence.
+4. Inspect the associated discrepancy, then assign, annotate or resolve the incident
+   with an authorized account. The shared demo workspace is read-only.
+
+The simulator and seeded anomalies make these workflows reproducible without a
+payment-provider account or real customer data.
 
 ## Features
 
@@ -195,21 +223,23 @@ Main routes: `/api/auth`, `/api/transactions`, `/api/refunds`, `/api/settlements
 - [Engineering review](docs/review.md)
 - [Notes preserved for later study](docs/interview-notes.md)
 
-## Deployment and remaining gate
+## Deployment status
 
-The HTTPS Compose overlay is prepared and configuration-validated. Public deployment
-requires an authorized host/provider account, DNS and any required billing approval.
-**No live URL is claimed until production smoke tests pass.**
-
-The final learning guide, walkthroughs, revision sheet, code map and resume package
-are intentionally deferred until the deployment completion gate, as requested.
+The application is available as a local Docker Compose demo. An optional HTTPS
+deployment configuration using Caddy is included in
+[`deploy/compose.production.yml`](deploy/compose.production.yml), with setup steps
+in the [deployment runbook](docs/deployment.md). Its Compose configuration has been
+validated; public hosting and production smoke tests have not been completed.
 
 ## Deliberate limits and future improvements
 
-INR only; simulated gateway/ledger; one worker; eventual reporting consistency;
-read-only shared demo; bounded offset pagination; one merchant per CSV. This is not
-a full double-entry ledger or certified banking system. No real card data, SSO/MFA,
-FX, Kafka, business impact or production-scale claims are included.
+- Payments use INR and a simulated gateway; ledger entries represent financial
+  evidence rather than a complete double-entry accounting system.
+- Background processing supports one worker, and reporting updates asynchronously.
+- The shared demo is read-only; transaction lists use bounded offset pagination,
+  and each settlement CSV covers one merchant.
+- Production load testing, real payment-provider integration and SSO/MFA are outside
+  the current scope.
 
 Future work: keyset pagination, indexed text search, stronger projection ordering,
 shared rate limits, upload retention, automated backup/restore and operational alerts,
