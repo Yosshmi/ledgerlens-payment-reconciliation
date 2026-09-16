@@ -1,6 +1,24 @@
 {
-  "name": "ledgerlens", "private": true, "version": "0.1.0",
-  "workspaces": ["server", "client"],
-  "scripts": {"build": "npm run build --workspaces", "typecheck": "npm run typecheck --workspaces", "lint": "eslint .", "test": "npm run test -w server"},
-  "devDependencies": {"eslint": "^9.39.0", "typescript-eslint": "^8.57.0", "@eslint/js": "^9.39.0", "globals": "^16.5.0"}
+  "name": "ledgerlens",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "lint": "eslint .",
+    "test": "npm run test -w server"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@playwright/test": "^1.63.0",
+    "eslint": "^9.39.0",
+    "globals": "^16.5.0",
+    "prettier": "^3.9.7",
+    "typescript-eslint": "^8.57.0"
+  }
 }
