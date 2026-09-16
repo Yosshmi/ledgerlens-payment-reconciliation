@@ -1,0 +1,34 @@
+import {test,expect} from '@playwright/test';
+test('demo investigation journey uses live API records',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.goto('/');await page.getByRole('button',{name:'Open demo workspace'}).click();
+ await expect(page.getByRole('heading',{name:'The full picture of your payments'})).toBeVisible();
+ await expect(async()=>{await page.reload();await expect(page.getByText('480 transactions · INR',{exact:true})).toBeVisible();}).toPass({timeout:120000});
+ await page.screenshot({path:'test-results/dashboard.png',fullPage:true});
+ await page.getByRole('link',{name:'Transactions',exact:true}).click();
+ await page.getByRole('textbox',{name:'Search transactions'}).fill('TXN_DEMO_00031');
+ await page.getByRole('button',{name:'Apply filters'}).click();
+ await expect(page.getByText('1 records · Page 1 of 1')).toBeVisible();
+ await page.getByRole('link',{name:'TXN_DEMO_00031',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Event timeline'})).toBeVisible();
+ await expect(page.getByText('Merchant credit failed',{exact:true})).toBeVisible();
+ await page.screenshot({path:'test-results/investigation.png',fullPage:true});
+ await page.reload();await expect(page.getByRole('heading',{name:'Event timeline'})).toBeVisible();
+ await page.getByRole('link',{name:'Incidents',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Incident inbox'})).toBeVisible();
+ await page.locator('tbody tr').first().getByRole('link').first().click();
+ await expect(page.getByRole('heading',{name:'Investigation activity'})).toBeVisible();
+ await page.getByRole('link',{name:'Settlements',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Settlement processing'})).toBeVisible();
+ await page.getByRole('link',{name:'Analytics',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Payment intelligence'})).toBeVisible();
+ expect(errors).toEqual([]);
+});
+test('mobile navigation and demo permissions',async({page})=>{
+ await page.setViewportSize({width:390,height:844});await page.goto('/');await page.getByRole('button',{name:'Open demo workspace'}).click();
+ await expect(page.getByRole('heading',{name:'The full picture of your payments'})).toBeVisible();
+ await page.getByRole('button',{name:'Open navigation'}).click();await page.getByRole('link',{name:'Transactions',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Transaction explorer'})).toBeVisible();await expect(page.getByRole('button',{name:'Simulate payment'})).toHaveCount(0);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ await page.screenshot({path:'test-results/mobile.png',fullPage:true});
+});

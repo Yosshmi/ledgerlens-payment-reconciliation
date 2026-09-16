@@ -1,0 +1,109 @@
+name: ledgerlens
+services:
+  mongodb:
+    image: mongo:8.0
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports: ["127.0.0.1:27017:27017"]
+    volumes: ["mongo-data:/data/db"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'mongosh --quiet --eval ''try { rs.status().ok } catch(e) { rs.initiate({_id:"rs0",members:[{_id:0,host:"mongodb:27017"}]}) }''',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ledgerlens
+      POSTGRES_USER: ledgerlens
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run node scripts/init-env.mjs}
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledgerlens"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--maxmemory-policy",
+        "noeviction",
+      ]
+    ports: ["127.0.0.1:6379:6379"]
+    volumes: ["redis-data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  reconciliation-service:
+    build: ./reconciliation-service
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://ledgerlens:${POSTGRES_PASSWORD}@postgres:5432/ledgerlens
+    depends_on:
+      postgres: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  server:
+    build: { context: ., dockerfile: server/Dockerfile }
+    env_file: .env
+    environment: &node-environment
+      MONGODB_URI: mongodb://mongodb:27017/ledgerlens?replicaSet=rs0
+      REDIS_URL: redis://redis:6379
+      DJANGO_URL: http://reconciliation-service:8000
+      APP_ORIGIN: http://localhost:8080
+    depends_on:
+      mongodb: { condition: service_healthy }
+      reconciliation-service: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:4000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  worker:
+    build: { context: ., dockerfile: server/Dockerfile }
+    command: ["node", "server/dist/workers/main.js"]
+    env_file: .env
+    environment: *node-environment
+    depends_on:
+      server: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+  client:
+    build: { context: ., dockerfile: client/Dockerfile }
+    ports: ["8080:80"]
+    depends_on:
+      server: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+volumes:
+  mongo-data:
+  postgres-data:
+  redis-data:
