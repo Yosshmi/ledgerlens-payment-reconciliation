@@ -107,7 +107,10 @@ beforeAll(async () => {
   other = await session("USR_B");
 }, 180000);
 afterAll(async () => {
-  if (mongoose.connection.readyState === 1)
+  if (
+    mongoose.connection.readyState === 1 &&
+    mongoose.connection.name.endsWith("_test")
+  )
     await mongoose.connection.dropDatabase();
   await mongoose.disconnect();
   await replica?.stop();
@@ -377,5 +380,18 @@ describe("API integration: security and financial invariants", () => {
       (await request(app).get("/api/auth/me").set("Cookie", temporary.cookie))
         .status,
     ).toBe(401);
+  });
+  it("fails a missing upload cleanly without publishing settlement rows", async () => {
+    await expect(
+      processSettlement(
+        "JOB_MISSING",
+        "ORG_A",
+        new mongoose.Types.ObjectId().toString(),
+        "STL_MISSING",
+      ),
+    ).rejects.toThrow();
+    expect(
+      await SettlementRow.countDocuments({ settlementId: "STL_MISSING" }),
+    ).toBe(0);
   });
 });

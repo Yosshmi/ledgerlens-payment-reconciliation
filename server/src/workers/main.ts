@@ -108,9 +108,29 @@ const worker = new Worker(
 worker.on("error", (err) =>
   logger.error({ message: err.message }, "Worker error"),
 );
-worker.on("failed", (job, err) =>
-  logger.warn({ jobId: job?.id, message: err.message }, "Job attempt failed"),
-);
+worker.on("failed", (job, err) => {
+  logger.warn({ jobId: job?.id, message: err.message }, "Job attempt failed");
+  if (
+    job &&
+    (job.attemptsMade >= (job.opts.attempts ?? 1) ||
+      err.message.includes("stalled"))
+  ) {
+    void Job.updateOne(
+      { jobId: job.data.jobId, state: { $ne: "COMPLETED" } },
+      {
+        $set: {
+          state: "FAILED",
+          error: "Worker attempts exhausted; inspect the job and retry",
+        },
+      },
+    ).catch((error) =>
+      logger.error(
+        { message: String(error) },
+        "Could not persist failed job state",
+      ),
+    );
+  }
+});
 let dispatching = false;
 async function dispatch() {
   if (dispatching) return;
@@ -122,6 +142,15 @@ async function dispatch() {
       .lean();
     for (const job of jobs) {
       const existing = await queue.getJob(job.jobId);
+      if (
+        existing &&
+        (await existing.getState()) === "completed" &&
+        job.state === "QUEUED"
+      ) {
+        await existing.remove();
+        await queue.add(job.kind, { jobId: job.jobId }, { jobId: job.jobId });
+        continue;
+      }
       if (
         existing &&
         (await existing.getState()) === "failed" &&

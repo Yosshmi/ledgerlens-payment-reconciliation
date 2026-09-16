@@ -35,18 +35,20 @@ function rows(fileId: string) {
   const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db!, {
     bucketName: "uploads",
   });
-  return bucket.openDownloadStream(new mongoose.Types.ObjectId(fileId)).pipe(
-    parse({
-      bom: true,
-      skip_empty_lines: true,
-      max_record_size: 4096,
-      columns: (header: string[]) => {
-        if (header.join(",") !== columns.join(","))
-          throw new Error("CSV headers must match the documented template");
-        return header;
-      },
-    }),
-  );
+  const source = bucket.openDownloadStream(new mongoose.Types.ObjectId(fileId));
+  const parser = parse({
+    bom: true,
+    skip_empty_lines: true,
+    max_record_size: 4096,
+    columns: (header: string[]) => {
+      if (header.join(",") !== columns.join(","))
+        throw new Error("CSV headers must match the documented template");
+      return header;
+    },
+  });
+  source.on("error", (error) => parser.destroy(error));
+  parser.once("close", () => source.destroy());
+  return source.pipe(parser);
 }
 export async function processSettlement(
   jobId: string,

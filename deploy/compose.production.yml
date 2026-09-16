@@ -1,0 +1,41 @@
+# Requires Docker Compose 2.24.4+ for !reset and !override.
+# Run from repository root with both compose files.
+services:
+  mongodb:
+    ports: !reset []
+    restart: unless-stopped
+  postgres:
+    ports: !reset []
+    restart: unless-stopped
+  redis:
+    ports: !reset []
+    restart: unless-stopped
+  reconciliation-service:
+    restart: unless-stopped
+  server:
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      APP_ORIGIN: https://${PUBLIC_HOST:?Set PUBLIC_HOST to your domain}
+  worker:
+    environment:
+      NODE_ENV: production
+      APP_ORIGIN: https://${PUBLIC_HOST:?Set PUBLIC_HOST to your domain}
+  client:
+    ports: !override ["127.0.0.1:8080:80"]
+    restart: unless-stopped
+  edge:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      client: {condition: service_healthy}
+    restart: unless-stopped
+volumes:
+  caddy-data:
+  caddy-config:
